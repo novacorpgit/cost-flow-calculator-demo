@@ -276,7 +276,7 @@ const ItemCostCalculator = () => {
     }
   };
 
-  // Fix the addNewColumn function to use the correct type for the alter method
+  // Fix the addNewColumn function to use the correct method for the alter action
   const addNewColumn = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
@@ -284,8 +284,8 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // FIX 2: Using the correct 'insert_col_right' instead of 'insert_col'
-      hotInstance.current.alter('insert_col_right', currentColCount - 1);
+      // FIX: Using 'insert_col' which is the valid AlterActions value
+      hotInstance.current.alter('insert_col', currentColCount - 1, 1); // insert 1 column after the current column
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
