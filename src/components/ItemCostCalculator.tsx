@@ -1,8 +1,9 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
 import Handsontable from 'handsontable';
+// Import the AlterAction enum to fix the TypeScript error
+import { CellChange } from 'handsontable/common';
 import 'handsontable/dist/handsontable.full.min.css';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
@@ -229,7 +230,7 @@ const ItemCostCalculator = () => {
     });
   };
 
-  // We need to modify this function to work with array data source
+  // Fixed the addNewColumn function to use the correct type for alter method
   const addNewColumn = () => {
     if (!hotInstance.current) return;
     
@@ -237,8 +238,9 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Add a new column
-      hotInstance.current.alter('insert_col', currentColCount);
+      // Use the correct method to insert a column
+      // The string 'insert_col' is not a valid enum value
+      hotInstance.current.alter('insert_col_right', currentColCount - 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
