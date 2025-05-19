@@ -1,14 +1,15 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
 import Handsontable from 'handsontable';
 // Import the AlterAction enum to fix the TypeScript error
-import { CellChange } from 'handsontable/common';
+import { CellChange, AlterType } from 'handsontable/common';
 import 'handsontable/dist/handsontable.full.min.css';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
-import { Filter, Plus, MoveDown, Download, X } from "lucide-react";
+import { Filter, Plus, MoveDown, Download, X, List, Square } from "lucide-react";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +68,7 @@ const ItemCostCalculator = () => {
     condition: string;
     value: string;
   }[]>([]);
+  const [headersHighlighted, setHeadersHighlighted] = useState(false);
   
   useEffect(() => {
     if (!hotRef.current) return;
@@ -118,12 +120,26 @@ const ItemCostCalculator = () => {
         if (col === 7) { // Total Cost column
           return { className: 'bg-green-50' };
         }
+        
         // Add header styling
         if ((row === 0 && col >= 0) || (row === 9 && col >= 0)) {
           return { 
             className: row === 0 ? 'bg-yellow-100 font-bold' : 'bg-cyan-100 font-bold',
             readOnly: true
           };
+        }
+        
+        // Check if this is a header row based on the Cat_ID format (Hx without hyphen)
+        const data = hotInstance.current?.getDataAtRow(row);
+        if (data && typeof data[0] === 'string') {
+          const catId = data[0];
+          const isHeaderRow = /^H\d+$/.test(catId); // Match H followed by digits with no hyphen
+          
+          if (isHeaderRow && headersHighlighted) {
+            return { 
+              className: 'bg-purple-100 font-bold',
+            };
+          }
         }
       },
       afterChange: (changes) => {
@@ -151,7 +167,7 @@ const ItemCostCalculator = () => {
         hotInstance.current.destroy();
       }
     };
-  }, []);
+  }, [headersHighlighted]);
 
   // Modified search functionality
   useEffect(() => {
@@ -239,8 +255,8 @@ const ItemCostCalculator = () => {
       const currentColCount = hotInstance.current.countCols();
       
       // Use the correct method to insert a column
-      // The string 'insert_col' is not a valid enum value
-      hotInstance.current.alter('insert_col_right', currentColCount - 1);
+      // Use the proper AlterType.INSERT_COLUMN_RIGHT value
+      hotInstance.current.alter(AlterType.INSERT_COLUMN_RIGHT, currentColCount - 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
@@ -318,6 +334,62 @@ const ItemCostCalculator = () => {
       });
     }
   };
+  
+  // Highlight header rows (rows that have Cat_ID in the format "Hx" with no hyphen)
+  const toggleHighlightHeaders = () => {
+    setHeadersHighlighted(!headersHighlighted);
+    
+    if (hotInstance.current) {
+      hotInstance.current.render(); // Force re-render of the table
+      
+      toast({
+        title: headersHighlighted ? "Headers highlighting disabled" : "Headers highlighting enabled",
+        description: headersHighlighted ? "Header rows are no longer highlighted" : "Header rows are now highlighted in purple",
+      });
+    }
+  };
+  
+  // Add empty rows before each header row
+  const addEmptyRowsBeforeHeaders = () => {
+    if (!hotInstance.current) return;
+    
+    // First, identify all header rows
+    const data = hotInstance.current.getData();
+    const headerRows: number[] = [];
+    
+    // Find all header rows (rows with Cat_ID format "Hx" with no hyphen)
+    data.forEach((row, index) => {
+      if (typeof row[0] === 'string' && /^H\d+$/.test(row[0])) {
+        headerRows.push(index);
+      }
+    });
+    
+    // Sort header rows in descending order to avoid index shifting when inserting rows
+    headerRows.sort((a, b) => b - a);
+    
+    // Insert an empty row before each header row
+    let insertedRows = 0;
+    headerRows.forEach(rowIndex => {
+      hotInstance.current?.alter(AlterType.INSERT_ROW_ABOVE, rowIndex);
+      insertedRows++;
+    });
+    
+    // If no header rows found
+    if (headerRows.length === 0) {
+      toast({
+        title: "No header rows found",
+        description: "No rows matching the header pattern (Hx) were found",
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Empty rows added",
+        description: `${insertedRows} empty rows added before header sections`,
+      });
+    }
+    
+    hotInstance.current.render();
+  };
 
   return (
     <div className="p-4">
@@ -346,10 +418,24 @@ const ItemCostCalculator = () => {
             </Button>
           </div>
         </div>
-        <Button onClick={exportToCSV} variant="outline" className="w-full sm:w-auto">
-          <Download className="h-4 w-4 mr-2" />
-          Export to CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={toggleHighlightHeaders} 
+            variant={headersHighlighted ? "default" : "outline"}
+            className="whitespace-nowrap"
+          >
+            <Square className="h-4 w-4 mr-1" />
+            {headersHighlighted ? "Hide Headers" : "Highlight Headers"}
+          </Button>
+          <Button onClick={addEmptyRowsBeforeHeaders} variant="outline" className="whitespace-nowrap">
+            <List className="h-4 w-4 mr-1" />
+            Add Empty Rows
+          </Button>
+          <Button onClick={exportToCSV} variant="outline" className="whitespace-nowrap">
+            <Download className="h-4 w-4 mr-1" />
+            Export
+          </Button>
+        </div>
       </div>
 
       {showFilters && (
@@ -457,6 +543,8 @@ const ItemCostCalculator = () => {
           <li>Click the filter button and choose filter conditions for precise data filtering.</li>
           <li>Click on column headers to access built-in column filters and sorting options.</li>
           <li>You can also drag and drop columns to reorder them.</li>
+          <li>Use "Highlight Headers" to color rows that start with header codes (like H1, H2).</li>
+          <li>Use "Add Empty Rows" to insert blank rows before each header section for better organization.</li>
         </ul>
       </div>
     </div>
