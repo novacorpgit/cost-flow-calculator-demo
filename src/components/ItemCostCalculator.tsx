@@ -300,9 +300,11 @@ const ItemCostCalculator = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
     try {
-      // Using the correct method - passing index as first parameter
+      // Using the proper method from Handsontable API
       const rowIndex = hotInstance.current.countRows() - 1;
-      hotInstance.current.alter('insert_row', rowIndex, 1);
+      // Use 'insert_row_after' instead of 'insert_row'
+      hotInstance.current.alter('insert_row_after', rowIndex);
+      
       toast({
         title: "Row added",
         description: "A new row has been added to the table",
@@ -325,9 +327,8 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Using the correct approach with the proper arguments
-      // Instead of string literals, provide the index and amount directly
-      hotInstance.current.alter('insert_col_end', undefined, 1); 
+      // Use 'insert_col_end' which is a valid AlterAction
+      hotInstance.current.alter('insert_col_end');
       
       // Set header for the new column (add 1 because we've just added a column)
       const newColIndex = hotInstance.current.countCols() - 1;
@@ -446,8 +447,8 @@ const ItemCostCalculator = () => {
       // Insert an empty row before each header row
       let insertedRows = 0;
       headerRows.forEach(rowIndex => {
-        // Using the correct alter approach
-        hotInstance.current?.alter('insert_row', rowIndex, 1);
+        // Use 'insert_row_above' which is a valid AlterAction
+        hotInstance.current?.alter('insert_row_above', rowIndex);
         insertedRows++;
       });
       
