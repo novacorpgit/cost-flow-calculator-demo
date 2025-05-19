@@ -260,7 +260,7 @@ const ItemCostCalculator = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
     try {
-      // Using 'insert_row_below' which is a valid AlterActions value
+      // FIX 1: Using the correct 'insert_row_below' instead of 'insert_row'
       hotInstance.current.alter('insert_row_below', hotInstance.current.countRows() - 1);
       toast({
         title: "Row added",
@@ -284,7 +284,7 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Using 'insert_col_right' which is a valid AlterActions value
+      // FIX 2: Using the correct 'insert_col_right' instead of 'insert_col'
       hotInstance.current.alter('insert_col_right', currentColCount - 1);
       
       // Set header for the new column
@@ -400,7 +400,7 @@ const ItemCostCalculator = () => {
       // Insert an empty row before each header row
       let insertedRows = 0;
       headerRows.forEach(rowIndex => {
-        // Using 'insert_row_above' which is a valid AlterActions value
+        // FIX 3: Using the correct 'insert_row_above' instead of 'insert_row'
         hotInstance.current?.alter('insert_row_above', rowIndex);
         insertedRows++;
       });
