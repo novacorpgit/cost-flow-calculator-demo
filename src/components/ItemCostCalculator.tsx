@@ -8,6 +8,13 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Filter, Plus, MoveDown, Download, X } from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Register all Handsontable modules
 registerAllModules();
@@ -33,12 +40,32 @@ const initialData = [
 
 const columnHeaders = ['Cat_ID', 'Manufacturer', 'Supplier', 'Item Description', 'Item Number', 'Qty', 'Unit cost $', 'Total Cost'];
 
+// Define filter condition types for the dropdown menu
+const filterConditions = [
+  { name: 'None', value: null },
+  { name: 'Contains', value: 'contains' },
+  { name: 'Equals', value: 'eq' },
+  { name: 'Begins with', value: 'begins_with' },
+  { name: 'Ends with', value: 'ends_with' },
+  { name: 'Greater than', value: 'gt' },
+  { name: 'Greater than or equal', value: 'gte' },
+  { name: 'Less than', value: 'lt' },
+  { name: 'Less than or equal', value: 'lte' },
+  { name: 'Is empty', value: 'empty' },
+  { name: 'Is not empty', value: 'not_empty' }
+];
+
 const ItemCostCalculator = () => {
   const hotRef = useRef<HTMLDivElement>(null);
   const hotInstance = useRef<Handsontable | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [activeFilters, setActiveFilters] = useState<{
+    column: number;
+    condition: string;
+    value: string;
+  }[]>([]);
   
   useEffect(() => {
     if (!hotRef.current) return;
@@ -104,7 +131,18 @@ const ItemCostCalculator = () => {
         }
       },
       // Add search plugin configuration
-      search: true
+      search: true,
+      // Event handler after applying filters
+      afterFilter: (conditionsStack) => {
+        console.log('Filters applied:', conditionsStack);
+        // Convert the filters to our format to display in the UI
+        const newActiveFilters = conditionsStack.map(condition => ({
+          column: condition.column,
+          condition: condition.conditions[0]?.name || '',
+          value: condition.conditions[0]?.args ? condition.conditions[0].args[0] : ''
+        }));
+        setActiveFilters(newActiveFilters);
+      }
     });
 
     return () => {
@@ -143,29 +181,21 @@ const ItemCostCalculator = () => {
   // Filter functionality
   useEffect(() => {
     if (hotInstance.current && Object.keys(filterValues).length > 0) {
-      const filters = [];
+      const filtersPlugin = hotInstance.current.getPlugin('filters');
       
-      for (const [colIndex, value] of Object.entries(filterValues)) {
-        if (value) {
-          filters.push({
-            column: parseInt(colIndex),
-            conditions: [
-              { name: 'contains', args: [value] }
-            ]
-          });
-        }
-      }
-      
-      if (filters.length > 0) {
-        // @ts-ignore - Filters method exists but TypeScript doesn't recognize it
-        hotInstance.current.getPlugin('filters').addConditions(filters);
-        // @ts-ignore
-        hotInstance.current.getPlugin('filters').filter();
-      } else {
-        // @ts-ignore
-        hotInstance.current.getPlugin('filters').clearConditions();
-        // @ts-ignore
-        hotInstance.current.getPlugin('filters').filter();
+      if (filtersPlugin) {
+        // Clear existing conditions first
+        filtersPlugin.clearConditions();
+        
+        // Apply new filters
+        Object.entries(filterValues).forEach(([colIndex, value]) => {
+          if (value) {
+            filtersPlugin.addCondition(parseInt(colIndex), 'contains', [value]);
+          }
+        });
+        
+        // Apply the filters
+        filtersPlugin.filter();
       }
     }
   }, [filterValues]);
@@ -199,29 +229,45 @@ const ItemCostCalculator = () => {
     });
   };
 
+  // We need to modify this function to work with array data source
   const addNewColumn = () => {
     if (!hotInstance.current) return;
-    const currentColCount = hotInstance.current.countCols();
-    hotInstance.current.alter('insert_col_end', 1);
     
-    // Add a header for the new column
-    hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
-    
-    toast({
-      title: "Column added",
-      description: "A new column has been added to the table",
-    });
+    try {
+      // Get current number of columns
+      const currentColCount = hotInstance.current.countCols();
+      
+      // Add a new column
+      hotInstance.current.alter('insert_col', currentColCount);
+      
+      // Set header for the new column
+      hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
+      
+      toast({
+        title: "Column added",
+        description: "A new column has been added to the table",
+      });
+    } catch (error) {
+      console.error("Error adding column:", error);
+      toast({
+        title: "Error",
+        description: "Could not add a new column. This may be due to data structure limitations.",
+        variant: "destructive"
+      });
+    }
   };
 
   const toggleFilters = () => {
     setShowFilters(!showFilters);
-    setFilterValues({});
     
     if (!showFilters && hotInstance.current) {
-      // @ts-ignore
-      hotInstance.current.getPlugin('filters').clearConditions();
-      // @ts-ignore
-      hotInstance.current.getPlugin('filters').filter();
+      const filtersPlugin = hotInstance.current.getPlugin('filters');
+      if (filtersPlugin) {
+        filtersPlugin.clearConditions();
+        filtersPlugin.filter();
+      }
+      setFilterValues({});
+      setActiveFilters([]);
     }
   };
 
@@ -234,11 +280,40 @@ const ItemCostCalculator = () => {
 
   const clearFilters = () => {
     setFilterValues({});
+    setActiveFilters([]);
     if (hotInstance.current) {
-      // @ts-ignore
-      hotInstance.current.getPlugin('filters').clearConditions();
-      // @ts-ignore
-      hotInstance.current.getPlugin('filters').filter();
+      const filtersPlugin = hotInstance.current.getPlugin('filters');
+      if (filtersPlugin) {
+        filtersPlugin.clearConditions();
+        filtersPlugin.filter();
+      }
+    }
+  };
+
+  // Apply custom filter with condition type
+  const applyCustomFilter = (column: number, condition: string, value: string) => {
+    if (!hotInstance.current) return;
+    
+    const filtersPlugin = hotInstance.current.getPlugin('filters');
+    if (filtersPlugin) {
+      // Clear existing conditions for this column
+      filtersPlugin.removeConditions(column);
+      
+      if (condition && condition !== 'empty' && condition !== 'not_empty') {
+        // Add the new condition with the specified value
+        filtersPlugin.addCondition(column, condition, [value]);
+      } else if (condition === 'empty' || condition === 'not_empty') {
+        // These conditions don't need a value
+        filtersPlugin.addCondition(column, condition, []);
+      }
+      
+      // Apply the filters
+      filtersPlugin.filter();
+      
+      toast({
+        title: "Filter applied",
+        description: `Filtering column ${columnHeaders[column]} with condition: ${condition}`,
+      });
     }
   };
 
@@ -284,16 +359,79 @@ const ItemCostCalculator = () => {
               Clear all
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          
+          {/* Enhanced filter UI with condition dropdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {columnHeaders.map((header, index) => (
-              <div key={index} className="flex flex-col">
-                <label className="text-sm mb-1">{header}</label>
-                <Input
-                  value={filterValues[index.toString()] || ''}
-                  onChange={(e) => handleFilterChange(index.toString(), e.target.value)}
-                  placeholder={`Filter ${header}...`}
-                  className="h-8 text-sm"
-                />
+              <div key={index} className="relative flex flex-col">
+                <label className="text-sm mb-1 font-medium">{header}</label>
+                <div className="flex gap-1">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full text-xs justify-start truncate">
+                        {activeFilters.find(f => f.column === index)?.condition 
+                          ? filterConditions.find(c => c.value === activeFilters.find(f => f.column === index)?.condition)?.name 
+                          : 'Select condition'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-0" align="start">
+                      <div className="flex flex-col gap-1 p-1 max-h-48 overflow-y-auto">
+                        {filterConditions.map((condition) => (
+                          <Button
+                            key={condition.value || 'none'}
+                            variant="ghost"
+                            size="sm"
+                            className="justify-start text-xs"
+                            onClick={() => {
+                              if (!condition.value) {
+                                // Clear this column's filter
+                                const filtersPlugin = hotInstance.current?.getPlugin('filters');
+                                if (filtersPlugin) {
+                                  filtersPlugin.removeConditions(index);
+                                  filtersPlugin.filter();
+                                }
+                              } else if (condition.value === 'empty' || condition.value === 'not_empty') {
+                                // These don't need a value
+                                applyCustomFilter(index, condition.value, '');
+                              } else {
+                                // For other conditions, we need to prompt for a value
+                                const value = prompt(`Enter value for "${condition.name}" filter:`);
+                                if (value !== null) {
+                                  applyCustomFilter(index, condition.value, value);
+                                }
+                              }
+                            }}
+                          >
+                            {condition.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                {/* Show active filter value if exists */}
+                {activeFilters.find(f => f.column === index && f.condition !== 'empty' && f.condition !== 'not_empty' && f.value) && (
+                  <div className="text-xs text-blue-600 mt-1 flex items-center">
+                    <span className="truncate">
+                      Value: {activeFilters.find(f => f.column === index)?.value}
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-4 w-4 p-0 ml-1"
+                      onClick={() => {
+                        const filtersPlugin = hotInstance.current?.getPlugin('filters');
+                        if (filtersPlugin) {
+                          filtersPlugin.removeConditions(index);
+                          filtersPlugin.filter();
+                        }
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -310,8 +448,14 @@ const ItemCostCalculator = () => {
           Use the table controls to filter, add rows/columns, and export data.
         </p>
         <p className="mt-2">
-          <strong>Tip:</strong> Right-click on any cell to access additional options including cut, copy, insert rows/columns and more.
+          <strong>Tips:</strong>
         </p>
+        <ul className="list-disc pl-5 space-y-1 mt-1">
+          <li>Right-click on any cell to access additional options including cut, copy, insert rows/columns and more.</li>
+          <li>Click the filter button and choose filter conditions for precise data filtering.</li>
+          <li>Click on column headers to access built-in column filters and sorting options.</li>
+          <li>You can also drag and drop columns to reorder them.</li>
+        </ul>
       </div>
     </div>
   );
