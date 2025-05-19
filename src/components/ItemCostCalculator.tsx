@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
@@ -69,6 +70,8 @@ const ItemCostCalculator = () => {
   }[]>([]);
   const [headersHighlighted, setHeadersHighlighted] = useState(false);
   const isHotDestroyed = useRef(false);
+  // New state for tracking the currently highlighted row
+  const [highlightedRow, setHighlightedRow] = useState<number | null>(null);
   
   useEffect(() => {
     if (!hotRef.current) return;
@@ -152,6 +155,14 @@ const ItemCostCalculator = () => {
               }
             }
           }
+          
+          // Apply custom highlighting for the selected row
+          if (row === highlightedRow) {
+            return {
+              className: 'bg-yellow-200',
+            };
+          }
+          
           return {};
         } catch (e) {
           console.error("Error in cells callback:", e);
@@ -186,7 +197,7 @@ const ItemCostCalculator = () => {
         hotInstance.current = null;
       }
     };
-  }, [headersHighlighted]);
+  }, [headersHighlighted, highlightedRow]); // Adding highlightedRow to dependency array
 
   // Modified search functionality
   useEffect(() => {
@@ -261,7 +272,7 @@ const ItemCostCalculator = () => {
     
     try {
       // Using 'insert_row_below' which is a valid AlterActions value
-      hotInstance.current.alter('insert_row_below', hotInstance.current.countRows() - 1);
+      hotInstance.current.alter('insert_row', hotInstance.current.countRows() - 1, 1);
       toast({
         title: "Row added",
         description: "A new row has been added to the table",
@@ -276,7 +287,6 @@ const ItemCostCalculator = () => {
     }
   };
 
-  // Fix the addNewColumn function to use the correct type for the alter method
   const addNewColumn = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
@@ -284,8 +294,8 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Using 'insert_col_right' which is a valid AlterActions value
-      hotInstance.current.alter('insert_col_right', currentColCount - 1);
+      // Using 'insert_col' as the method name for Handsontable's alter function
+      hotInstance.current.alter('insert_col', currentColCount - 1, 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
@@ -400,8 +410,8 @@ const ItemCostCalculator = () => {
       // Insert an empty row before each header row
       let insertedRows = 0;
       headerRows.forEach(rowIndex => {
-        // Using 'insert_row_above' which is a valid AlterActions value
-        hotInstance.current?.alter('insert_row_above', rowIndex);
+        // Using 'insert_row' as the method name for Handsontable's alter function
+        hotInstance.current?.alter('insert_row', rowIndex, 1);
         insertedRows++;
       });
       
@@ -425,6 +435,38 @@ const ItemCostCalculator = () => {
       toast({
         title: "Error",
         description: "Could not add empty rows before headers",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // New function to highlight an entire row when a header is clicked
+  const highlightEntireRow = (rowIndex: number) => {
+    if (!hotInstance.current || isHotDestroyed.current) return;
+    
+    try {
+      // Toggle highlighting - if the row is already highlighted, unhighlight it
+      if (highlightedRow === rowIndex) {
+        setHighlightedRow(null);
+        toast({
+          title: "Row highlight removed",
+          description: "The highlighted row has been reset",
+        });
+      } else {
+        setHighlightedRow(rowIndex);
+        toast({
+          title: "Row highlighted",
+          description: `Row ${rowIndex + 1} has been highlighted`,
+        });
+      }
+      
+      // Force re-render the table to apply the highlighting
+      hotInstance.current.render();
+    } catch (error) {
+      console.error("Error highlighting row:", error);
+      toast({
+        title: "Error",
+        description: "Could not highlight the row",
         variant: "destructive"
       });
     }
@@ -466,6 +508,38 @@ const ItemCostCalculator = () => {
             <Square className="h-4 w-4 mr-1" />
             {headersHighlighted ? "Hide Headers" : "Highlight Headers"}
           </Button>
+          <Button
+            onClick={() => {
+              if (!hotInstance.current) return;
+              
+              // Get all header rows
+              const data = hotInstance.current.getData();
+              const headerRows: number[] = [];
+              
+              data.forEach((row, index) => {
+                if (typeof row[0] === 'string' && /^H\d+$/.test(row[0])) {
+                  headerRows.push(index);
+                }
+              });
+              
+              // If we have headers, highlight the first one or toggle
+              if (headerRows.length > 0) {
+                const targetRow = headerRows[0];
+                highlightEntireRow(targetRow);
+              } else {
+                toast({
+                  title: "No header rows found",
+                  description: "No rows matching the header pattern (Hx) were found",
+                  variant: "destructive"
+                });
+              }
+            }}
+            variant="outline"
+            className="whitespace-nowrap"
+          >
+            <Square className="h-4 w-4 mr-1" />
+            Highlight Row
+          </Button>
           <Button onClick={addEmptyRowsBeforeHeaders} variant="outline" className="whitespace-nowrap">
             <List className="h-4 w-4 mr-1" />
             Add Empty Rows
@@ -476,6 +550,24 @@ const ItemCostCalculator = () => {
           </Button>
         </div>
       </div>
+
+      {/* Add row highlighting UI */}
+      {highlightedRow !== null && (
+        <div className="mb-4 p-3 border rounded-md bg-yellow-50 flex justify-between items-center">
+          <span className="text-sm">
+            Row {highlightedRow + 1} is currently highlighted
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setHighlightedRow(null)}
+            className="h-8"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Clear
+          </Button>
+        </div>
+      )}
 
       {showFilters && (
         <div className="mb-4 p-4 border rounded-md bg-gray-50">
@@ -584,6 +676,7 @@ const ItemCostCalculator = () => {
           <li>You can also drag and drop columns to reorder them.</li>
           <li>Use "Highlight Headers" to color rows that start with header codes (like H1, H2).</li>
           <li>Use "Add Empty Rows" to insert blank rows before each header section for better organization.</li>
+          <li>Click the "Highlight Row" button to highlight an entire row for better visibility.</li>
         </ul>
       </div>
     </div>
