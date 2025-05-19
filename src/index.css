@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,19 +36,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -98,4 +92,41 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Handsontable custom styles */
+.handsontable {
+  font-size: 14px !important;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif !important;
+}
+
+.handsontable .htDimmed {
+  color: #64748b !important;
+}
+
+.handsontable th {
+  background-color: #f8fafc !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+}
+
+.handsontable .bg-yellow-100 {
+  background-color: #fef9c3 !important;
+}
+
+.handsontable .bg-cyan-100 {
+  background-color: #cffafe !important;
+}
+
+.handsontable .bg-green-50 {
+  background-color: #f0fdf4 !important;
+}
+
+.handsontable .bg-gray-100 {
+  background-color: #f3f4f6 !important;
+}
+
+.handsontable-container {
+  width: 100%;
+  overflow: hidden;
 }
