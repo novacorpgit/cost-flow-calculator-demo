@@ -260,7 +260,8 @@ const ItemCostCalculator = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
     try {
-      hotInstance.current.alter('insert_row_below', hotInstance.current.countRows() - 1);
+      // Use 'insert_row' instead of 'insert_row_below'
+      hotInstance.current.alter('insert_row', hotInstance.current.countRows() - 1);
       toast({
         title: "Row added",
         description: "A new row has been added to the table",
@@ -283,8 +284,8 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Use 'insert_col_right' instead of 'insert_col'
-      hotInstance.current.alter('insert_col_right', currentColCount - 1);
+      // Use 'insert_col' instead of 'insert_col_right'
+      hotInstance.current.alter('insert_col', currentColCount - 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
@@ -399,7 +400,8 @@ const ItemCostCalculator = () => {
       // Insert an empty row before each header row
       let insertedRows = 0;
       headerRows.forEach(rowIndex => {
-        hotInstance.current?.alter('insert_row_above', rowIndex);
+        // Use 'insert_row' instead of 'insert_row_above'
+        hotInstance.current?.alter('insert_row', rowIndex);
         insertedRows++;
       });
       
