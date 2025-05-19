@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
@@ -8,12 +9,15 @@ import 'handsontable/dist/handsontable.full.min.css';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
-import { Filter, Plus, MoveDown, Download, X, List, Square } from "lucide-react";
+import { Filter, Plus, MoveDown, Download, X, List, Square, Columns } from "lucide-react";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -69,6 +73,10 @@ const ItemCostCalculator = () => {
   }[]>([]);
   const [headersHighlighted, setHeadersHighlighted] = useState(false);
   const isHotDestroyed = useRef(false);
+  // New state for column visibility
+  const [columnVisibility, setColumnVisibility] = useState<boolean[]>(
+    Array(columnHeaders.length).fill(true)
+  );
   
   useEffect(() => {
     if (!hotRef.current) return;
@@ -188,6 +196,39 @@ const ItemCostCalculator = () => {
     };
   }, [headersHighlighted]);
 
+  // Effect to handle column visibility changes
+  useEffect(() => {
+    if (!hotInstance.current || isHotDestroyed.current) return;
+    
+    // Get all visible columns
+    const visibleColumns = columnVisibility.reduce((acc, isVisible, index) => {
+      if (!isVisible) {
+        acc.push(index);
+      }
+      return acc;
+    }, [] as number[]);
+    
+    // Hide columns
+    if (visibleColumns.length > 0) {
+      hotInstance.current.updateSettings({
+        hiddenColumns: {
+          columns: visibleColumns,
+          indicators: true
+        }
+      });
+    } else {
+      // Show all columns
+      hotInstance.current.updateSettings({
+        hiddenColumns: {
+          columns: [],
+          indicators: false
+        }
+      });
+    }
+    
+    hotInstance.current.render();
+  }, [columnVisibility]);
+
   // Modified search functionality
   useEffect(() => {
     if (hotInstance.current && searchQuery) {
@@ -284,11 +325,14 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // FIX: Using 'insert_col' which is the valid AlterActions value
+      // Using the proper Handsontable method for inserting columns
       hotInstance.current.alter('insert_col', currentColCount - 1, 1); // insert 1 column after the current column
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
+      
+      // Update columnVisibility state to include the new column
+      setColumnVisibility(prev => [...prev, true]);
       
       toast({
         title: "Column added",
@@ -429,6 +473,29 @@ const ItemCostCalculator = () => {
       });
     }
   };
+  
+  // Toggle column visibility
+  const toggleColumnVisibility = (index: number) => {
+    setColumnVisibility(prev => {
+      const updated = [...prev];
+      updated[index] = !updated[index];
+      return updated;
+    });
+    
+    toast({
+      title: columnVisibility[index] ? "Column hidden" : "Column shown",
+      description: `${columnHeaders[index]} column is now ${columnVisibility[index] ? "hidden" : "visible"}`,
+    });
+  };
+  
+  // Reset column visibility to show all columns
+  const resetColumnVisibility = () => {
+    setColumnVisibility(Array(columnHeaders.length).fill(true));
+    toast({
+      title: "Column visibility reset",
+      description: "All columns are now visible",
+    });
+  };
 
   return (
     <div className="p-4">
@@ -455,6 +522,32 @@ const ItemCostCalculator = () => {
             <Button onClick={addNewColumn} variant="outline" size="icon">
               <MoveDown className="h-4 w-4 rotate-90" />
             </Button>
+            
+            {/* Column visibility dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Columns className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Column Visibility</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {columnHeaders.map((header, index) => (
+                  <DropdownMenuCheckboxItem
+                    key={index}
+                    checked={columnVisibility[index]}
+                    onCheckedChange={() => toggleColumnVisibility(index)}
+                  >
+                    {header}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={resetColumnVisibility}>
+                  Show all columns
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         <div className="flex gap-2">
@@ -581,6 +674,7 @@ const ItemCostCalculator = () => {
           <li>Right-click on any cell to access additional options including cut, copy, insert rows/columns and more.</li>
           <li>Click the filter button and choose filter conditions for precise data filtering.</li>
           <li>Click on column headers to access built-in column filters and sorting options.</li>
+          <li>Use the columns button to show/hide specific columns.</li>
           <li>You can also drag and drop columns to reorder them.</li>
           <li>Use "Highlight Headers" to color rows that start with header codes (like H1, H2).</li>
           <li>Use "Add Empty Rows" to insert blank rows before each header section for better organization.</li>
