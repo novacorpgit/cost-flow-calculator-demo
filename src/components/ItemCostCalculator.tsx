@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
 import Handsontable from 'handsontable';
-// Import the correct types
+// Import the correct types and actions enum
 import { CellChange } from 'handsontable/common';
 import 'handsontable/dist/handsontable.full.min.css';
 import { Button } from '@/components/ui/button';
@@ -300,8 +300,9 @@ const ItemCostCalculator = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
     try {
-      // FIX 1: Using the correct 'insert_row_below' instead of 'insert_row'
-      hotInstance.current.alter('insert_row_below', hotInstance.current.countRows() - 1);
+      // Using the correct method - passing index as first parameter
+      const rowIndex = hotInstance.current.countRows() - 1;
+      hotInstance.current.alter('insert_row', rowIndex, 1);
       toast({
         title: "Row added",
         description: "A new row has been added to the table",
@@ -324,12 +325,13 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // FIX: Using the correct alter value for inserting columns
-      // In newer versions of Handsontable, we need to use the index and amount parameters
-      hotInstance.current.alter('insert_col', currentColCount, 1); 
+      // Using the correct approach with the proper arguments
+      // Instead of string literals, provide the index and amount directly
+      hotInstance.current.alter('insert_col_end', undefined, 1); 
       
-      // Set header for the new column
-      hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
+      // Set header for the new column (add 1 because we've just added a column)
+      const newColIndex = hotInstance.current.countCols() - 1;
+      hotInstance.current.setDataAtCell(0, newColIndex, `Custom Column ${newColIndex - 7}`);
       
       // Update columnVisibility state to include the new column
       setColumnVisibility(prev => [...prev, true]);
@@ -422,7 +424,7 @@ const ItemCostCalculator = () => {
     }
   };
   
-  // Fix the addEmptyRowsBeforeHeaders function to use the correct type for the alter method
+  // Fix the addEmptyRowsBeforeHeaders function to use the correct approach
   const addEmptyRowsBeforeHeaders = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
@@ -444,8 +446,8 @@ const ItemCostCalculator = () => {
       // Insert an empty row before each header row
       let insertedRows = 0;
       headerRows.forEach(rowIndex => {
-        // FIX 3: Using the correct 'insert_row_above' instead of 'insert_row'
-        hotInstance.current?.alter('insert_row_above', rowIndex);
+        // Using the correct alter approach
+        hotInstance.current?.alter('insert_row', rowIndex, 1);
         insertedRows++;
       });
       
