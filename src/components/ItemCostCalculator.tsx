@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
 import Handsontable from 'handsontable';
-// Fix the import for CellChange - removed AlterType which doesn't exist
+// Import the correct types
 import { CellChange } from 'handsontable/common';
 import 'handsontable/dist/handsontable.full.min.css';
 import { Button } from '@/components/ui/button';
@@ -260,8 +260,8 @@ const ItemCostCalculator = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
     try {
-      // Use 'insert_row' instead of 'insert_row_below'
-      hotInstance.current.alter('insert_row', hotInstance.current.countRows() - 1);
+      // Using 'insert_row_below' which is a valid AlterActions value
+      hotInstance.current.alter('insert_row_below', hotInstance.current.countRows() - 1);
       toast({
         title: "Row added",
         description: "A new row has been added to the table",
@@ -284,8 +284,8 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Use 'insert_col' instead of 'insert_col_right'
-      hotInstance.current.alter('insert_col', currentColCount - 1);
+      // Using 'insert_col_right' which is a valid AlterActions value
+      hotInstance.current.alter('insert_col_right', currentColCount - 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
@@ -400,8 +400,8 @@ const ItemCostCalculator = () => {
       // Insert an empty row before each header row
       let insertedRows = 0;
       headerRows.forEach(rowIndex => {
-        // Use 'insert_row' instead of 'insert_row_above'
-        hotInstance.current?.alter('insert_row', rowIndex);
+        // Using 'insert_row_above' which is a valid AlterActions value
+        hotInstance.current?.alter('insert_row_above', rowIndex);
         insertedRows++;
       });
       
