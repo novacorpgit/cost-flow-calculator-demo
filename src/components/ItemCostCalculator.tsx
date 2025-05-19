@@ -1,10 +1,9 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
 import Handsontable from 'handsontable';
-// Import the AlterAction enum to fix the TypeScript error
-import { CellChange, AlterType } from 'handsontable/common';
+// Fix the import for CellChange and remove AlterType which doesn't exist
+import { CellChange } from 'handsontable/common';
 import 'handsontable/dist/handsontable.full.min.css';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
@@ -246,7 +245,7 @@ const ItemCostCalculator = () => {
     });
   };
 
-  // Fixed the addNewColumn function to use the correct type for alter method
+  // Fix the addNewColumn function to use string literals instead of AlterType enum
   const addNewColumn = () => {
     if (!hotInstance.current) return;
     
@@ -254,9 +253,8 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Use the correct method to insert a column
-      // Use the proper AlterType.INSERT_COLUMN_RIGHT value
-      hotInstance.current.alter(AlterType.INSERT_COLUMN_RIGHT, currentColCount - 1);
+      // Use the string literal 'insert_column_right' instead of AlterType.INSERT_COLUMN_RIGHT
+      hotInstance.current.alter('insert_column_right', currentColCount - 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
@@ -349,7 +347,7 @@ const ItemCostCalculator = () => {
     }
   };
   
-  // Add empty rows before each header row
+  // Fix the addEmptyRowsBeforeHeaders function to use string literals
   const addEmptyRowsBeforeHeaders = () => {
     if (!hotInstance.current) return;
     
@@ -370,7 +368,7 @@ const ItemCostCalculator = () => {
     // Insert an empty row before each header row
     let insertedRows = 0;
     headerRows.forEach(rowIndex => {
-      hotInstance.current?.alter(AlterType.INSERT_ROW_ABOVE, rowIndex);
+      hotInstance.current?.alter('insert_row_above', rowIndex);
       insertedRows++;
     });
     
