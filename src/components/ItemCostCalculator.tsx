@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
@@ -325,8 +324,9 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Using the proper Handsontable method for inserting columns
-      hotInstance.current.alter('insert_col', currentColCount - 1, 1); // insert 1 column after the current column
+      // FIX: Using the correct alter value for inserting columns
+      // In newer versions of Handsontable, we need to use the index and amount parameters
+      hotInstance.current.alter('insert_col', currentColCount, 1); 
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
