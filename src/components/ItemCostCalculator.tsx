@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { registerAllModules } from 'handsontable/registry';
 import { HyperFormula } from 'hyperformula';
 import Handsontable from 'handsontable';
-// Fix the import for CellChange and remove AlterType which doesn't exist
+// Fix the import for CellChange - removed AlterType which doesn't exist
 import { CellChange } from 'handsontable/common';
 import 'handsontable/dist/handsontable.full.min.css';
 import { Button } from '@/components/ui/button';
@@ -275,7 +275,7 @@ const ItemCostCalculator = () => {
     }
   };
 
-  // Fix the addNewColumn function to use the correct string value for Handsontable's alter method
+  // Fix the addNewColumn function to use the correct type for the alter method
   const addNewColumn = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
@@ -283,8 +283,8 @@ const ItemCostCalculator = () => {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Use the correct string value for the alter method
-      hotInstance.current.alter('insert_col', currentColCount - 1);
+      // Use 'insert_col_right' instead of 'insert_col'
+      hotInstance.current.alter('insert_col_right', currentColCount - 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
@@ -377,7 +377,7 @@ const ItemCostCalculator = () => {
     }
   };
   
-  // Fix the addEmptyRowsBeforeHeaders function to use the correct string value
+  // Fix the addEmptyRowsBeforeHeaders function to use the correct type for the alter method
   const addEmptyRowsBeforeHeaders = () => {
     if (!hotInstance.current || isHotDestroyed.current) return;
     
@@ -399,7 +399,7 @@ const ItemCostCalculator = () => {
       // Insert an empty row before each header row
       let insertedRows = 0;
       headerRows.forEach(rowIndex => {
-        hotInstance.current?.alter('insert_row', rowIndex);
+        hotInstance.current?.alter('insert_row_above', rowIndex);
         insertedRows++;
       });
       
