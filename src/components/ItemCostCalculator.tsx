@@ -103,6 +103,8 @@ const ItemCostCalculator = () => {
           hotInstance.current?.render();
         }
       },
+      // Add search plugin configuration
+      search: true
     });
 
     return () => {
@@ -112,22 +114,29 @@ const ItemCostCalculator = () => {
     };
   }, []);
 
+  // Modified search functionality
   useEffect(() => {
     if (hotInstance.current && searchQuery) {
-      const searchQueryLower = searchQuery.toLowerCase();
-      hotInstance.current.updateSettings({
-        search: {
-          queryMethod: (query: string, value: any) => {
-            if (value === null || value === undefined) {
-              return false;
-            }
-            return String(value).toLowerCase().indexOf(searchQueryLower) !== -1;
-          }
+      // Get the search plugin from the Handsontable instance
+      const searchPlugin = hotInstance.current.getPlugin('search');
+      
+      if (searchPlugin) {
+        // Clear previous search results
+        hotInstance.current.render();
+        
+        // Perform the search
+        const queryResult = searchPlugin.query(searchQuery);
+        
+        // Highlight the search results
+        const foundCells = queryResult.length;
+        
+        if (foundCells > 0) {
+          // Optional: Add some visual indication that cells were found
+          console.log(`Found ${foundCells} cells matching "${searchQuery}"`);
+        } else {
+          console.log(`No cells found matching "${searchQuery}"`);
         }
-      });
-
-      const searchResult = hotInstance.current.search.query(searchQuery);
-      hotInstance.current.render();
+      }
     }
   }, [searchQuery]);
 
