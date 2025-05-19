@@ -68,9 +68,13 @@ const ItemCostCalculator = () => {
     value: string;
   }[]>([]);
   const [headersHighlighted, setHeadersHighlighted] = useState(false);
+  const isHotDestroyed = useRef(false);
   
   useEffect(() => {
     if (!hotRef.current) return;
+    
+    // Set instance as not destroyed when initializing
+    isHotDestroyed.current = false;
     
     // Initialize HyperFormula
     const hyperformulaInstance = HyperFormula.buildEmpty({
@@ -116,34 +120,47 @@ const ItemCostCalculator = () => {
         }
       ],
       cells: function(row, col) {
-        if (col === 7) { // Total Cost column
-          return { className: 'bg-green-50' };
+        // Guard against destroyed instance
+        if (isHotDestroyed.current || !hotInstance.current) {
+          return {};
         }
         
-        // Add header styling
-        if ((row === 0 && col >= 0) || (row === 9 && col >= 0)) {
-          return { 
-            className: row === 0 ? 'bg-yellow-100 font-bold' : 'bg-cyan-100 font-bold',
-            readOnly: true
-          };
-        }
-        
-        // Check if this is a header row based on the Cat_ID format (Hx without hyphen)
-        const data = hotInstance.current?.getDataAtRow(row);
-        if (data && typeof data[0] === 'string') {
-          const catId = data[0];
-          const isHeaderRow = /^H\d+$/.test(catId); // Match H followed by digits with no hyphen
+        try {
+          if (col === 7) { // Total Cost column
+            return { className: 'bg-green-50' };
+          }
           
-          if (isHeaderRow && headersHighlighted) {
+          // Add header styling
+          if ((row === 0 && col >= 0) || (row === 9 && col >= 0)) {
             return { 
-              className: 'bg-purple-100 font-bold',
+              className: row === 0 ? 'bg-yellow-100 font-bold' : 'bg-cyan-100 font-bold',
+              readOnly: true
             };
           }
+          
+          // Check if this is a header row based on the Cat_ID format (Hx without hyphen)
+          if (row < hotInstance.current.countRows()) {
+            const data = hotInstance.current.getDataAtRow(row);
+            if (data && typeof data[0] === 'string') {
+              const catId = data[0];
+              const isHeaderRow = /^H\d+$/.test(catId); // Match H followed by digits with no hyphen
+              
+              if (isHeaderRow && headersHighlighted) {
+                return { 
+                  className: 'bg-purple-100 font-bold',
+                };
+              }
+            }
+          }
+          return {};
+        } catch (e) {
+          console.error("Error in cells callback:", e);
+          return {};
         }
       },
       afterChange: (changes) => {
-        if (changes) {
-          hotInstance.current?.render();
+        if (changes && !isHotDestroyed.current && hotInstance.current) {
+          hotInstance.current.render();
         }
       },
       // Add search plugin configuration
@@ -163,7 +180,10 @@ const ItemCostCalculator = () => {
 
     return () => {
       if (hotInstance.current) {
+        // Set the destroyed flag before destroying the instance
+        isHotDestroyed.current = true;
         hotInstance.current.destroy();
+        hotInstance.current = null;
       }
     };
   }, [headersHighlighted]);
@@ -237,24 +257,34 @@ const ItemCostCalculator = () => {
   };
 
   const addNewRow = () => {
-    if (!hotInstance.current) return;
-    hotInstance.current.alter('insert_row_below', hotInstance.current.countRows() - 1);
-    toast({
-      title: "Row added",
-      description: "A new row has been added to the table",
-    });
+    if (!hotInstance.current || isHotDestroyed.current) return;
+    
+    try {
+      hotInstance.current.alter('insert_row_below', hotInstance.current.countRows() - 1);
+      toast({
+        title: "Row added",
+        description: "A new row has been added to the table",
+      });
+    } catch (error) {
+      console.error("Error adding row:", error);
+      toast({
+        title: "Error",
+        description: "Could not add a new row",
+        variant: "destructive"
+      });
+    }
   };
 
-  // Fix the addNewColumn function to use string literals instead of AlterType enum
+  // Fix the addNewColumn function to use the correct string value for Handsontable's alter method
   const addNewColumn = () => {
-    if (!hotInstance.current) return;
+    if (!hotInstance.current || isHotDestroyed.current) return;
     
     try {
       // Get current number of columns
       const currentColCount = hotInstance.current.countCols();
       
-      // Use the string literal 'insert_column_right' instead of AlterType.INSERT_COLUMN_RIGHT
-      hotInstance.current.alter('insert_column_right', currentColCount - 1);
+      // Use the correct string value for the alter method
+      hotInstance.current.alter('insert_col', currentColCount - 1);
       
       // Set header for the new column
       hotInstance.current.setDataAtCell(0, currentColCount, `Custom Column ${currentColCount - 7}`);
@@ -347,46 +377,55 @@ const ItemCostCalculator = () => {
     }
   };
   
-  // Fix the addEmptyRowsBeforeHeaders function to use string literals
+  // Fix the addEmptyRowsBeforeHeaders function to use the correct string value
   const addEmptyRowsBeforeHeaders = () => {
-    if (!hotInstance.current) return;
+    if (!hotInstance.current || isHotDestroyed.current) return;
     
-    // First, identify all header rows
-    const data = hotInstance.current.getData();
-    const headerRows: number[] = [];
-    
-    // Find all header rows (rows with Cat_ID format "Hx" with no hyphen)
-    data.forEach((row, index) => {
-      if (typeof row[0] === 'string' && /^H\d+$/.test(row[0])) {
-        headerRows.push(index);
+    try {
+      // First, identify all header rows
+      const data = hotInstance.current.getData();
+      const headerRows: number[] = [];
+      
+      // Find all header rows (rows with Cat_ID format "Hx" with no hyphen)
+      data.forEach((row, index) => {
+        if (typeof row[0] === 'string' && /^H\d+$/.test(row[0])) {
+          headerRows.push(index);
+        }
+      });
+      
+      // Sort header rows in descending order to avoid index shifting when inserting rows
+      headerRows.sort((a, b) => b - a);
+      
+      // Insert an empty row before each header row
+      let insertedRows = 0;
+      headerRows.forEach(rowIndex => {
+        hotInstance.current?.alter('insert_row', rowIndex);
+        insertedRows++;
+      });
+      
+      // If no header rows found
+      if (headerRows.length === 0) {
+        toast({
+          title: "No header rows found",
+          description: "No rows matching the header pattern (Hx) were found",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Empty rows added",
+          description: `${insertedRows} empty rows added before header sections`,
+        });
       }
-    });
-    
-    // Sort header rows in descending order to avoid index shifting when inserting rows
-    headerRows.sort((a, b) => b - a);
-    
-    // Insert an empty row before each header row
-    let insertedRows = 0;
-    headerRows.forEach(rowIndex => {
-      hotInstance.current?.alter('insert_row_above', rowIndex);
-      insertedRows++;
-    });
-    
-    // If no header rows found
-    if (headerRows.length === 0) {
+      
+      hotInstance.current.render();
+    } catch (error) {
+      console.error("Error adding empty rows:", error);
       toast({
-        title: "No header rows found",
-        description: "No rows matching the header pattern (Hx) were found",
+        title: "Error",
+        description: "Could not add empty rows before headers",
         variant: "destructive"
       });
-    } else {
-      toast({
-        title: "Empty rows added",
-        description: `${insertedRows} empty rows added before header sections`,
-      });
     }
-    
-    hotInstance.current.render();
   };
 
   return (
